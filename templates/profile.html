@@ -3,14 +3,9 @@
 <h1>Profil</h1>
 <form method="post">
   <div class="mb-3">
-    <label for="profile_text" class="form-label">Opis profilu</label>
+    <label for="profile_text" class="form-label">Opis profilu (wiek, płeć, kondycja, itp.)</label>
     <textarea class="form-control" name="profile_text" id="profile_text" rows="3">{{ profile_text or '' }}</textarea>
   </div>
   <button type="submit" class="btn btn-primary">Zapisz</button>
 </form>
-{% if saved %}
-  <div class="mt-3">
-    <a href="{{ url_for('main.report') }}" class="btn btn-success">Zgłoś</a>
-  </div>
-{% endif %}
 {% endblock %}

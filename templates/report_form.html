@@ -1,20 +1,56 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>Nowe zgłoszenie</h1>
+<!-- Nowe zgłoszenie: duży przycisk plus w kółku -->
 <!-- Loading overlay -->
 <div id="loading-overlay" style="position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(255,255,255,0.8);z-index:1050;display:none;align-items:center;justify-content:center;">
   <div class="spinner-border text-primary" role="status">
     <span class="visually-hidden">Wysyłanie...</span>
   </div>
 </div>
+<style>
+  .upload-circle {
+    width: 150px;
+    height: 150px;
+    border: 3px dashed #0d6efd;
+    border-radius: 50%;
+    background-color: transparent;
+    position: relative;
+    cursor: pointer;
+    transition: background-color .3s, border-color .3s;
+  }
+  .upload-circle::before {
+    content: '+';
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11rem;
+    color: #0d6efd;
+    transition: color .3s;
+  }
+  .upload-circle:hover {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+  }
+  .upload-circle:hover::before {
+    color: #fff;
+  }
+  #new-report-form {
+    height: calc(100vh - 2rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: -6rem;
+  }
+  #image {
+    display: none;
+  }
+</style>
 <form id="new-report-form" method="post" enctype="multipart/form-data">
-  <div class="mb-3">
-    <label for="image" class="form-label">Zdjęcie</label>
-    <input class="form-control" type="file" id="image" name="image" required>
-  </div>
+  <label for="image" class="upload-circle" title="Dodaj zdjęcie"></label>
+  <input type="file" id="image" name="image" accept="image/*" required>
   <input type="hidden" name="lat" id="lat">
   <input type="hidden" name="lng" id="lng">
-  <!-- Przycisk został usunięty; formularz wysyła się automatycznie po wyborze zdjęcia -->
 </form>
 <script>
   window.onload = () => {

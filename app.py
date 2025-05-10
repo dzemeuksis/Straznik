@@ -137,14 +137,12 @@ def profile():
             }
             users.append(user)
         save_json('users.json', users)
-        # After saving profile, remain on the profile page and show report button
-        resp = make_response(redirect(url_for('main.profile', saved=1)))
+        # After saving profile, redirect directly to new report form
+        resp = make_response(redirect(url_for('main.report')))
         resp.set_cookie('user_id', user_id)
         return resp
-    # Determine if profile was just saved (show report button)
-    saved = request.args.get('saved') is not None
     profile_text = user['profile_text'] if user else ''
-    return render_template('profile.html', profile_text=profile_text, saved=saved)
+    return render_template('profile.html', profile_text=profile_text)
 
 @main.route('/report', methods=['GET', 'POST'])
 def report():
