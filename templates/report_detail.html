@@ -33,18 +33,50 @@
     <span class="visually-hidden">Wysyłanie...</span>
   </div>
 </div>
-<!-- Formularz dodawania nowej aktualizacji (najpierw) -->
-<form id="add-entry-form" method="post" enctype="multipart/form-data">
-  <input type="hidden" name="action" value="add_entry">
-  <input type="hidden" name="lat" id="lat">
-  <input type="hidden" name="lng" id="lng">
-  <div class="mb-3">
-    <label for="image" class="form-label">Nowe zdjęcie</label>
-    <input class="form-control" type="file" id="image" name="image" required>
-  </div>
-  <!-- Opcjonalny opis przesyłany w oddzielnej kolejności; nie wysyłamy w tym formularzu -->
-  <!-- Pole opisu i przycisk zostały usunięte; formularz wysyła się automatycznie po wyborze zdjęcia -->
-</form>
+<!-- Formularz dodawania nowej aktualizacji (przycisk plus) -->
+<style>
+  .upload-circle {
+    width: 100px;
+    height: 100px;
+    border: 4px dashed #0d6efd;
+    border-radius: 50%;
+    background-color: transparent;
+    position: relative;
+    cursor: pointer;
+    transition: background-color .3s, border-color .3s;
+    display: inline-block;
+    margin-bottom: 1rem;
+  }
+  .upload-circle::before {
+    content: '+';
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 4rem;
+    color: #0d6efd;
+    transition: color .3s;
+  }
+  .upload-circle:hover {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+  }
+  .upload-circle:hover::before {
+    color: #fff;
+  }
+  #image {
+    display: none;
+  }
+</style>
+<div class="d-flex justify-content-center mb-4">
+  <form id="add-entry-form" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="action" value="add_entry">
+    <input type="hidden" name="lat" id="lat">
+    <input type="hidden" name="lng" id="lng">
+    <label for="image" class="upload-circle" title="Dodaj zdjęcie"></label>
+    <input type="file" id="image" name="image" accept="image/*" required>
+  </form>
+</div>
 <hr class="my-4">
 <!-- Wersje zgłoszenia od najnowszej do najstarszej -->
 {% for entry in report.entries | reverse %}
