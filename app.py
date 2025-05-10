@@ -33,8 +33,15 @@ def load_json(filename):
     if not os.path.exists(path):
         with open(path, 'w') as f:
             json.dump([], f)
-    with open(path, 'r') as f:
-        return json.load(f)
+    try:
+        with open(path, 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        # Corrupted or empty file: reinitialize with empty list
+        data = []
+        with open(path, 'w') as f:
+            json.dump(data, f)
+        return data
 
 def save_json(filename, data):
     path = os.path.join(app.config['DATA_FOLDER'], filename)
@@ -47,15 +54,51 @@ def load_prompt(filename):
         return f.read()
 def get_image_metadata(filepath):
     """
-    Read EXIF metadata from image file and return as dict.
+    Read EXIF metadata and extract photo timestamp and GPS coordinates.
+    Returns a dict with optional keys: photo_time, exif_lat, exif_lng.
     """
     try:
         img = Image.open(filepath)
-        exif_data = img._getexif() or {}
+        exif_raw = img._getexif() or {}
         metadata = {}
-        for tag_id, value in exif_data.items():
-            tag = ExifTags.TAGS.get(tag_id, tag_id)
-            metadata[tag] = value
+        # Extract photo time
+        # 36867 = DateTimeOriginal, 306 = DateTime
+        dt = exif_raw.get(36867) or exif_raw.get(306)
+        if dt:
+            metadata['photo_time'] = dt
+        # Extract GPS info
+        gps_info = exif_raw.get(34853)  # GPSInfo tag
+        if gps_info:
+            # Map GPS tags to names
+            gps_data = {}
+            for key, val in gps_info.items():
+                name = ExifTags.GPSTAGS.get(key, key)
+                gps_data[name] = val
+            lat = gps_data.get('GPSLatitude')
+            lat_ref = gps_data.get('GPSLatitudeRef')
+            lon = gps_data.get('GPSLongitude')
+            lon_ref = gps_data.get('GPSLongitudeRef')
+            def to_degrees(value):
+                d, m, s = value
+                def conv(x):
+                    try:
+                        return float(x)
+                    except Exception:
+                        num, den = x
+                        return num / den if den else 0
+                d_f = conv(d)
+                m_f = conv(m)
+                s_f = conv(s)
+                return d_f + m_f/60 + s_f/3600
+            if lat and lat_ref and lon and lon_ref:
+                lat_f = to_degrees(lat)
+                if lat_ref != 'N':
+                    lat_f = -lat_f
+                lon_f = to_degrees(lon)
+                if lon_ref != 'E':
+                    lon_f = -lon_f
+                metadata['exif_lat'] = lat_f
+                metadata['exif_lng'] = lon_f
         return metadata
     except Exception:
         return {}
@@ -155,14 +198,29 @@ def report():
             ai_advice = advice_response.output_text.strip()
         except Exception:
             ai_advice = 'AI advice is unavailable.'
-        # Save report with initial entry
+        # Save report with initial entry, including device and EXIF locations and photo time
         reports = load_json('reports.json')
         created_at = datetime.utcnow().isoformat() + 'Z'
         entry_id = str(uuid.uuid4())
+        # EXIF metadata
+        exif_meta = get_image_metadata(filepath)
+        photo_time = exif_meta.get('photo_time')
+        exif_lat = exif_meta.get('exif_lat')
+        exif_lng = exif_meta.get('exif_lng')
+        # Device location
+        try:
+            dev_lat = float(lat)
+            dev_lng = float(lng)
+            device_location = {'lat': dev_lat, 'lng': dev_lng}
+        except Exception:
+            device_location = None
         entry = {
             'entry_id': entry_id,
             'timestamp': created_at,
             'image_filename': filename,
+            'device_location': device_location,
+            'photo_time': photo_time,
+            'exif_location': {'lat': exif_lat, 'lng': exif_lng} if exif_lat is not None and exif_lng is not None else None,
             'ai_description': ai_description,
             'user_description': '',
             'ai_advice': ai_advice
@@ -205,8 +263,18 @@ def report_detail(report_id):
                     entry['user_description'] = user_desc
                     break
         elif action == 'add_entry':
+            # Add a new entry: capture device & EXIF metadata and run vision+advice
             file = request.files.get('image')
             user_desc = request.form.get('user_description', '').strip()
+            # Device location
+            lat = request.form.get('lat')
+            lng = request.form.get('lng')
+            try:
+                dev_lat = float(lat)
+                dev_lng = float(lng)
+                device_location = {'lat': dev_lat, 'lng': dev_lng}
+            except Exception:
+                device_location = None
             if not file or file.filename == '':
                 return "No file", 400
             ext = os.path.splitext(file.filename)[1]
@@ -214,14 +282,18 @@ def report_detail(report_id):
             new_filename = new_entry_id + ext
             new_filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
             file.save(new_filepath)
-            # Extract EXIF metadata
-            metadata_dict = get_image_metadata(new_filepath)
-            if metadata_dict:
-                metadane = "\n".join(f"{k}: {v}" for k, v in metadata_dict.items())
+            # EXIF metadata
+            exif_meta = get_image_metadata(new_filepath)
+            photo_time = exif_meta.get('photo_time')
+            exif_lat = exif_meta.get('exif_lat')
+            exif_lng = exif_meta.get('exif_lng')
+            # Build prompt metadata string
+            if exif_meta:
+                metadane = "\n".join(f"{k}: {v}" for k, v in exif_meta.items())
             else:
                 metadane = "Brak metadanych."
             prompt_desc = load_prompt('image_description.txt').format(metadane=metadane)
-            # Encode image
+            # Encode and call vision
             mime_type, _ = mimetypes.guess_type(new_filepath)
             if not mime_type:
                 mime_type = 'application/octet-stream'
@@ -261,6 +333,9 @@ def report_detail(report_id):
                 'entry_id': new_entry_id,
                 'timestamp': timestamp,
                 'image_filename': new_filename,
+                'device_location': device_location,
+                'photo_time': photo_time,
+                'exif_location': {'lat': exif_lat, 'lng': exif_lng} if exif_lat is not None and exif_lng is not None else None,
                 'ai_description': ai_description_new,
                 'user_description': user_desc,
                 'ai_advice': ai_advice_new
@@ -290,16 +365,20 @@ def api_incidents():
         rep_list = []
         for rid in inc.get('reports', []):
             r = next((rep for rep in reports if rep['report_id'] == rid), None)
-            if r:
-                # include first entry for marker popup
-                first = r.get('entries', [])[0]
-                rep_list.append({
-                    'report_id': r['report_id'],
-                    'location': r['location'],
-                    'ai_description': first.get('ai_description'),
-                    'ai_advice': first.get('ai_advice'),
-                    'image_url': url_for('main.uploaded_file', filename=first.get('image_filename'))
-                })
+            if not r:
+                continue
+            # include latest entry for marker popup
+            entries = r.get('entries', [])
+            if not entries:
+                continue
+            last = entries[-1]
+            rep_list.append({
+                'report_id': r['report_id'],
+                'location': r['location'],
+                'ai_description': last.get('ai_description'),
+                'ai_advice': last.get('ai_advice'),
+                'image_url': url_for('main.uploaded_file', filename=last.get('image_filename'))
+            })
         out.append({
             'incident_id': inc.get('incident_id'),
             'created_at': inc.get('created_at'),

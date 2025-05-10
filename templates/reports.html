@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>Your Reports</h1>
+<h1>Twoje zgłoszenia</h1>
 <ul class="list-group">
   {% if reports %}
     {% for rpt in reports %}
@@ -8,11 +8,11 @@
         <a href="{{ url_for('main.report_detail', report_id=rpt.report_id) }}">
           {{ rpt.report_id[:8] }} &mdash; {{ rpt.created_at }}
         </a>
-        <span class="badge bg-primary rounded-pill">{{ rpt.entries|length }} entries</span>
+        <span class="badge bg-primary rounded-pill">{{ rpt.entries|length }} aktualizacji</span>
       </li>
     {% endfor %}
-  {% else %}
-    <li class="list-group-item">No reports yet.</li>
+    {% else %}
+    <li class="list-group-item">Brak zgłoszeń.</li>
   {% endif %}
 </ul>
 {% endblock %}

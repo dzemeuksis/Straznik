@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>New Report</h1>
+<h1>Nowe zgłoszenie</h1>
 <form method="post" enctype="multipart/form-data">
   <div class="mb-3">
-    <label for="image" class="form-label">Image</label>
+    <label for="image" class="form-label">Zdjęcie</label>
     <input class="form-control" type="file" id="image" name="image" required>
   </div>
   <input type="hidden" name="lat" id="lat">
   <input type="hidden" name="lng" id="lng">
-  <button type="submit" class="btn btn-primary">Submit</button>
+  <button type="submit" class="btn btn-primary">Zgłoś</button>
 </form>
 <script>
   window.onload = () => {

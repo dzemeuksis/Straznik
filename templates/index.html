@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>Incident Map</h1>
+<h1>Mapa incydentów</h1>
 <div id="map" style="height: 600px;"></div>
 <script>
   // Default map center (fallback)
@@ -27,10 +27,10 @@
             .bindPopup(
               `
                 <div style="text-align:center;">
-                  <img src="${rpt.image_url}" alt="Report image" style="max-width:150px; max-height:150px; margin-bottom:5px;" />
+                  <img src="${rpt.image_url}" alt="Zdjęcie zgłoszenia" style="max-width:150px; max-height:150px; margin-bottom:5px;" />
                 </div>
-                <strong>${rpt.ai_description}</strong><br>
-                ${rpt.ai_advice}
+                <strong>Opis AI:</strong><br>${rpt.ai_description}<br><br>
+                <strong>Porada AI:</strong><br>${rpt.ai_advice}
               `
             );
         });

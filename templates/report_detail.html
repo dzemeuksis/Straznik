@@ -1,16 +1,25 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>Report Details</h1>
-<p><strong>Location:</strong> {{ report.location.lat }}, {{ report.location.lng }}</p>
+<h1>Szczegóły zgłoszenia</h1>
 {% for entry in report.entries %}
   <div class="card mb-3">
     <div class="card-body">
+      <p><strong>Data przesłania:</strong> {{ entry.timestamp }}</p>
+      {% if entry.photo_time %}
+      <p><strong>Czas wykonania zdjęcia:</strong> {{ entry.photo_time }}</p>
+      {% endif %}
+      {% if entry.device_location %}
+      <p><strong>Lokalizacja urządzenia:</strong> {{ entry.device_location.lat }}, {{ entry.device_location.lng }}</p>
+      {% endif %}
+      {% if entry.exif_location %}
+      <p><strong>Lokalizacja z EXIF:</strong> {{ entry.exif_location.lat }}, {{ entry.exif_location.lng }}</p>
+      {% endif %}
       <img src="{{ url_for('main.uploaded_file', filename=entry.image_filename) }}" class="img-fluid mb-2">
-      <h5>AI Description</h5>
+      <h5>Opis AI</h5>
       <p>{{ entry.ai_description }}</p>
-      <h5>AI Advice</h5>
+      <h5>Porada AI</h5>
       <p>{{ entry.ai_advice }}</p>
-      <h5>Your Description</h5>
+      <h5>Twój opis</h5>
       {% if entry.user_description %}
         <p>{{ entry.user_description }}</p>
       {% endif %}
@@ -18,24 +27,36 @@
         <input type="hidden" name="entry_id" value="{{ entry.entry_id }}">
         <input type="hidden" name="action" value="update_description">
         <div class="mb-2">
-          <textarea class="form-control" name="user_description" rows="2" placeholder="Add your description">{{ entry.user_description }}</textarea>
+          <textarea class="form-control" name="user_description" rows="2" placeholder="Dodaj opis">{{ entry.user_description }}</textarea>
         </div>
-        <button type="submit" class="btn btn-secondary btn-sm">Save Description</button>
+        <button type="submit" class="btn btn-secondary btn-sm">Zapisz opis</button>
       </form>
     </div>
   </div>
 {% endfor %}
-<h3>Add New Entry</h3>
+<h3>Dodaj wpis</h3>
 <form method="post" enctype="multipart/form-data">
   <input type="hidden" name="action" value="add_entry">
+  <input type="hidden" name="lat" id="lat">
+  <input type="hidden" name="lng" id="lng">
   <div class="mb-3">
-    <label for="image" class="form-label">Image</label>
+    <label for="image" class="form-label">Zdjęcie</label>
     <input class="form-control" type="file" id="image" name="image" required>
   </div>
   <div class="mb-3">
-    <label for="user_description_new" class="form-label">Your Description (optional)</label>
+    <label for="user_description_new" class="form-label">Twój opis (opcjonalnie)</label>
     <textarea class="form-control" id="user_description_new" name="user_description" rows="3"></textarea>
   </div>
-  <button type="submit" class="btn btn-primary">Add Entry</button>
+  <button type="submit" class="btn btn-primary">Dodaj aktualizację</button>
 </form>
+<script>
+  window.onload = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        document.getElementById('lat').value = pos.coords.latitude;
+        document.getElementById('lng').value = pos.coords.longitude;
+      });
+    }
+  };
+</script>
 {% endblock %}
