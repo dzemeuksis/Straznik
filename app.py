@@ -165,11 +165,13 @@ def api_incidents():
         for rid in inc.get('reports', []):
             r = next((rep for rep in reports if rep['report_id'] == rid), None)
             if r:
+                # Include image URL for thumbnails
                 rep_list.append({
                     'report_id': r['report_id'],
                     'location': r['location'],
                     'ai_description': r['ai_description'],
-                    'ai_advice': r['ai_advice']
+                    'ai_advice': r['ai_advice'],
+                    'image_url': url_for('main.uploaded_file', filename=r['image_filename'])
                 })
         out.append({
             'incident_id': inc.get('incident_id'),

@@ -3,22 +3,50 @@
 <h1>Incident Map</h1>
 <div id="map" style="height: 600px;"></div>
 <script>
-  const map = L.map('map').setView([50.0647, 19.9450], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-  fetch('{{ url_for("main.api_incidents") }}')
-    .then(res => res.json())
-    .then(data => {
-      data.forEach(inc => {
-        const rpt = inc.reports[0];
-        L.marker([rpt.location.lat, rpt.location.lng])
-          .addTo(map)
-          .bindPopup(`
-            <strong>${rpt.ai_description}</strong><br>
-            ${rpt.ai_advice}
-          `);
+  // Default map center (fallback)
+  const defaultLocation = [50.0647, 19.9450];
+  const defaultZoom = 13;
+  let map;
+
+  function initializeMap(lat, lng) {
+    map = L.map('map').setView([lat, lng], defaultZoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    loadIncidents();
+  }
+
+  function loadIncidents() {
+    fetch('{{ url_for("main.api_incidents") }}')
+      .then(res => res.json())
+      .then(data => {
+        data.forEach(inc => {
+          const rpt = inc.reports[0];
+          L.marker([rpt.location.lat, rpt.location.lng])
+            .addTo(map)
+            .bindPopup(
+              `
+                <div style="text-align:center;">
+                  <img src="${rpt.image_url}" alt="Report image" style="max-width:150px; max-height:150px; margin-bottom:5px;" />
+                </div>
+                <strong>${rpt.ai_description}</strong><br>
+                ${rpt.ai_advice}
+              `
+            );
+        });
       });
-    });
+  }
+
+  // On load, attempt to use browser geolocation, otherwise fallback
+  window.onload = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => initializeMap(pos.coords.latitude, pos.coords.longitude),
+        () => initializeMap(...defaultLocation)
+      );
+    } else {
+      initializeMap(...defaultLocation);
+    }
+  };
 </script>
 {% endblock %}
