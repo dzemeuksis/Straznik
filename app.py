@@ -229,11 +229,13 @@ def report():
             'user_description': '',
             'ai_advice': ai_advice
         }
+        # Determine report-level location: prefer device location, fallback to EXIF location if available
+        report_location = device_location or entry.get('exif_location')
         report = {
             'report_id': report_id,
             'user_id': user_id,
             'created_at': created_at,
-            'location': {'lat': float(lat), 'lng': float(lng)},
+            'location': report_location,
             'entries': [entry],
             # status of confirmation: False = niepotwierdzone
             'confirmed': False

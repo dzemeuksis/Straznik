@@ -65,19 +65,23 @@
         document.getElementById('lng').value = pos.coords.longitude;
       });
     }
-    // Auto-submit form upon image selection
+    // Auto-submit form upon image selection with disabling controls
     const imgInput = document.getElementById('image');
     const addForm = document.getElementById('add-entry-form');
     function showLoading() {
       const overlay = document.getElementById('loading-overlay');
       if (overlay) overlay.style.display = 'flex';
     }
+    function disableAllControls() {
+      // Disable form controls except file and hidden inputs to preserve file data and hidden fields
+      document.querySelectorAll('input:not([type=file]):not([type=hidden]), button, textarea, select')
+        .forEach(el => el.disabled = true);
+    }
     if (imgInput && addForm) {
-      imgInput.addEventListener('change', () => addForm.submit());
-      // On submit, show loading overlay and disable input
-      addForm.addEventListener('submit', () => {
-        imgInput.disabled = true;
+      imgInput.addEventListener('change', () => {
+        disableAllControls();
         showLoading();
+        addForm.submit();
       });
     }
   };
