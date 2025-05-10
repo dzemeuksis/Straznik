@@ -240,7 +240,9 @@ def report():
             'exif_location': {'lat': exif_lat, 'lng': exif_lng} if exif_lat is not None and exif_lng is not None else None,
             'ai_description': ai_description,
             'user_description': '',
-            'ai_advice': ai_advice
+            'ai_advice': ai_advice,
+            # Track owner of this entry
+            'user_id': user_id
         }
         # Determine report-level location: prefer device location, fallback to EXIF location if available
         report_location = device_location or entry.get('exif_location')
@@ -270,6 +272,8 @@ def report():
 
 @main.route('/report/<report_id>', methods=['GET', 'POST'])
 def report_detail(report_id):
+    # Current user ID from cookie
+    user_id = request.cookies.get('user_id')
     # View and update a report: allows annotating entries or adding new images
     reports = load_json('reports.json')
     report = next((r for r in reports if r['report_id'] == report_id), None)
@@ -363,7 +367,9 @@ def report_detail(report_id):
                 'exif_location': {'lat': exif_lat, 'lng': exif_lng} if exif_lat is not None and exif_lng is not None else None,
                 'ai_description': ai_description_new,
                 'user_description': user_desc,
-                'ai_advice': ai_advice_new
+                'ai_advice': ai_advice_new,
+                # Track editor of this entry
+                'user_id': user_id
             }
             report.setdefault('entries', []).append(new_entry)
             # Show AI advice for the new entry in a modal
@@ -385,7 +391,11 @@ def reports_list():
     if not user_id:
         return redirect(url_for('main.profile'))
     all_reports = load_json('reports.json')
-    user_reports = [r for r in all_reports if r.get('user_id') == user_id]
+    # Include reports created by user or those the user has edited
+    user_reports = []
+    for r in all_reports:
+        if r.get('user_id') == user_id or any(e.get('user_id') == user_id for e in r.get('entries', [])):
+            user_reports.append(r)
     return render_template('reports.html', reports=user_reports)
 
 @main.route('/api/incidents')
