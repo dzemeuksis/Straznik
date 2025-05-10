@@ -204,7 +204,13 @@ def report():
         try:
             advice_response = client.responses.create(
                 model=app.config['AI_MODEL'],
-                input=prompt_adv
+                input=[{
+                    'role': 'user',
+                    'content': [
+                        {'type': 'input_text', 'text': prompt_adv},
+                        {'type': 'input_image', 'image_url': data_uri}
+                    ]
+                }]
             )
             ai_advice = advice_response.output_text.strip()
         except Exception:
