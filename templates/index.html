@@ -7,6 +7,8 @@
   const defaultLocation = [50.0647, 19.9450];
   const defaultZoom = 13;
   let map;
+  // Ikony znaczników: zadeklarowane globalnie, przypisane po załadowaniu Leaflet
+  var redIcon, greenIcon;
 
   function initializeMap(lat, lng) {
     map = L.map('map').setView([lat, lng], defaultZoom);
@@ -17,12 +19,13 @@
   }
 
   function loadIncidents() {
-    fetch('{{ url_for("main.api_incidents") }}')
+    fetch("{{ url_for('main.api_incidents') }}")
       .then(res => res.json())
       .then(data => {
         data.forEach(inc => {
           const rpt = inc.reports[0];
-          L.marker([rpt.location.lat, rpt.location.lng])
+          // Wybierz ikonę na podstawie stanu potwierdzenia
+          L.marker([rpt.location.lat, rpt.location.lng], {icon: rpt.confirmed ? greenIcon : redIcon})
             .addTo(map)
             .bindPopup(
               `
@@ -30,15 +33,35 @@
                   <img src="${rpt.image_url}" alt="Zdjęcie zgłoszenia" style="max-width:150px; max-height:150px; margin-bottom:5px;" />
                 </div>
                 <strong>Opis AI:</strong><br>${rpt.ai_description}<br><br>
-                <strong>Porada AI:</strong><br>${rpt.ai_advice}
+                <strong>Porada AI:</strong><br>${rpt.ai_advice}<br><br>
+                <div class="text-center mt-2">
+                  <a href="/report/${rpt.report_id}" class="btn btn-sm btn-primary text-white fw-bold">Aktualizuj</a>
+                </div>
               `
             );
         });
       });
   }
 
-  // On load, attempt to use browser geolocation, otherwise fallback
+  // On load, configure icons and attempt to use browser geolocation, otherwise fallback
   window.onload = () => {
+    // Zdefiniuj ikony po załadowaniu Leaflet
+    redIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+    greenIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         pos => initializeMap(pos.coords.latitude, pos.coords.longitude),

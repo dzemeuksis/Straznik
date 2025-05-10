@@ -4,8 +4,9 @@
 <ul class="list-group">
   {% if reports %}
     {% for rpt in reports %}
-      <li class="list-group-item d-flex justify-content-between align-items-center">
+      <li class="list-group-item d-flex justify-content-between align-items-center {% if rpt.confirmed %}list-group-item-success{% else %}list-group-item-danger{% endif %}">
         <a href="{{ url_for('main.report_detail', report_id=rpt.report_id) }}">
+          {{ rpt.entries[0].ai_description[:100] }}...<br>
           {{ rpt.report_id[:8] }} &mdash; {{ rpt.created_at }}
         </a>
         <span class="badge bg-primary rounded-pill">{{ rpt.entries|length }} aktualizacji</span>

@@ -54,42 +54,47 @@ def load_prompt(filename):
         return f.read()
 def get_image_metadata(filepath):
     """
-    Read EXIF metadata and extract photo timestamp and GPS coordinates.
-    Returns a dict with optional keys: photo_time, exif_lat, exif_lng.
+    Read all EXIF metadata from an image file.
+    Returns a dict mapping EXIF tag names to values, plus parsed keys:
+    - photo_time: original DateTimeOriginal or DateTime
+    - exif_lat, exif_lng: GPS coordinates in decimal degrees, if available
     """
     try:
         img = Image.open(filepath)
         exif_raw = img._getexif() or {}
         metadata = {}
+        # Map EXIF tags to names
+        for tag_id, value in exif_raw.items():
+            tag = ExifTags.TAGS.get(tag_id, tag_id)
+            metadata[tag] = value
         # Extract photo time
-        # 36867 = DateTimeOriginal, 306 = DateTime
-        dt = exif_raw.get(36867) or exif_raw.get(306)
+        dt = metadata.get('DateTimeOriginal') or metadata.get('DateTime')
         if dt:
             metadata['photo_time'] = dt
-        # Extract GPS info
-        gps_info = exif_raw.get(34853)  # GPSInfo tag
-        if gps_info:
-            # Map GPS tags to names
+        # Process GPS info if present
+        gps_info = metadata.get('GPSInfo')
+        if isinstance(gps_info, dict):
+            # Map GPS sub-tags to names
             gps_data = {}
             for key, val in gps_info.items():
-                name = ExifTags.GPSTAGS.get(key, key)
-                gps_data[name] = val
+                subtag = ExifTags.GPSTAGS.get(key, key)
+                gps_data[subtag] = val
+            metadata['GPSInfo'] = gps_data
+            # Convert to decimal degrees
             lat = gps_data.get('GPSLatitude')
             lat_ref = gps_data.get('GPSLatitudeRef')
             lon = gps_data.get('GPSLongitude')
             lon_ref = gps_data.get('GPSLongitudeRef')
-            def to_degrees(value):
-                d, m, s = value
+            def to_degrees(vals):
+                d, m, s = vals
                 def conv(x):
                     try:
                         return float(x)
                     except Exception:
                         num, den = x
                         return num / den if den else 0
-                d_f = conv(d)
-                m_f = conv(m)
-                s_f = conv(s)
-                return d_f + m_f/60 + s_f/3600
+                return conv(d) + conv(m)/60 + conv(s)/3600
+
             if lat and lat_ref and lon and lon_ref:
                 lat_f = to_degrees(lat)
                 if lat_ref != 'N':
@@ -158,7 +163,6 @@ def report():
             metadane = "\n".join(f"{k}: {v}" for k, v in metadata_dict.items())
         else:
             metadane = "Brak metadanych."
-        print("Metadane:", metadane)
         prompt_desc = load_prompt('image_description.txt').format(metadane=metadane)
         # AI description using vision modality via direct image encoding
         # Encode image file as Base64 data URI
@@ -230,7 +234,9 @@ def report():
             'user_id': user_id,
             'created_at': created_at,
             'location': {'lat': float(lat), 'lng': float(lng)},
-            'entries': [entry]
+            'entries': [entry],
+            # status of confirmation: False = niepotwierdzone
+            'confirmed': False
         }
         reports.append(report)
         save_json('reports.json', reports)
@@ -377,7 +383,9 @@ def api_incidents():
                 'location': r['location'],
                 'ai_description': last.get('ai_description'),
                 'ai_advice': last.get('ai_advice'),
-                'image_url': url_for('main.uploaded_file', filename=last.get('image_filename'))
+                'image_url': url_for('main.uploaded_file', filename=last.get('image_filename')),
+                # confirmation status
+                'confirmed': r.get('confirmed', False)
             })
         out.append({
             'incident_id': inc.get('incident_id'),

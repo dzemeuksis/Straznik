@@ -1,4 +1,4 @@
-Na podstawie załączonego zdjęcia (oraz udostępnionych metadanych: współrzędne GPS, znacznik czasu, dane EXIF) wygeneruj jasny, zwięzły opis, który pomoże zaklasyfikować incydent bezpieczeństwa.
+Na podstawie załączonego zdjęcia (oraz udostępnionych metadanych) wygeneruj jasny, zwięzły opis, który pomoże zaklasyfikować incydent bezpieczeństwa.
 
 Uwzględnij:
 1. **Co się dzieje?** Krótkie podsumowanie głównej akcji lub sceny.  
@@ -7,6 +7,8 @@ Uwzględnij:
 4. **Szczegóły kontekstowe:** Podpowiedz lokalizację (np. „na moście”, „we wnętrzu samochodu”), porę dnia, widoczne warunki pogodowe.  
 
 Odpowiedź ogranicz do 2–3 zdań, nie spekuluj poza tym, co widać na zdjęciu.
+
+Unikaj ozdobników typu "na zdjęciu widać" - wiadomo, że to opis zdjęcia. Czyli zmiast "Na zdjęciu widać płonący dom..." pisz "Płonący dom...", itp.
 
 **Metadane:**  
 {metadane}

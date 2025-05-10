@@ -1,7 +1,27 @@
 {% extends 'base.html' %}
 {% block content %}
 <h1>Szczegóły zgłoszenia</h1>
-{% for entry in report.entries %}
+<!-- Loading overlay -->
+<div id="loading-overlay" style="position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(255,255,255,0.8);z-index:1050;display:none;align-items:center;justify-content:center;">
+  <div class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">Wysyłanie...</span>
+  </div>
+</div>
+<!-- Formularz dodawania nowej aktualizacji (najpierw) -->
+<form id="add-entry-form" method="post" enctype="multipart/form-data">
+  <input type="hidden" name="action" value="add_entry">
+  <input type="hidden" name="lat" id="lat">
+  <input type="hidden" name="lng" id="lng">
+  <div class="mb-3">
+    <label for="image" class="form-label">Zdjęcie</label>
+    <input class="form-control" type="file" id="image" name="image" required>
+  </div>
+  <!-- Opcjonalny opis przesyłany w oddzielnej kolejności; nie wysyłamy w tym formularzu -->
+  <!-- Pole opisu i przycisk zostały usunięte; formularz wysyła się automatycznie po wyborze zdjęcia -->
+</form>
+<hr class="my-4">
+<!-- Wersje zgłoszenia od najnowszej do najstarszej -->
+{% for entry in report.entries | reverse %}
   <div class="card mb-3">
     <div class="card-body">
       <p><strong>Data przesłania:</strong> {{ entry.timestamp }}</p>
@@ -17,7 +37,9 @@
       <img src="{{ url_for('main.uploaded_file', filename=entry.image_filename) }}" class="img-fluid mb-2">
       <h5>Opis AI</h5>
       <p>{{ entry.ai_description }}</p>
-      <h5>Porada AI</h5>
+      <h5>Porada AI {% if loop.first %}
+        <button type="button" id="dokladniej-btn" class="btn btn-secondary btn-sm ms-2">Dokładniej</button>
+      {% endif %}</h5>
       <p>{{ entry.ai_advice }}</p>
       <h5>Twój opis</h5>
       {% if entry.user_description %}
@@ -34,27 +56,28 @@
     </div>
   </div>
 {% endfor %}
-<h3>Dodaj wpis</h3>
-<form method="post" enctype="multipart/form-data">
-  <input type="hidden" name="action" value="add_entry">
-  <input type="hidden" name="lat" id="lat">
-  <input type="hidden" name="lng" id="lng">
-  <div class="mb-3">
-    <label for="image" class="form-label">Zdjęcie</label>
-    <input class="form-control" type="file" id="image" name="image" required>
-  </div>
-  <div class="mb-3">
-    <label for="user_description_new" class="form-label">Twój opis (opcjonalnie)</label>
-    <textarea class="form-control" id="user_description_new" name="user_description" rows="3"></textarea>
-  </div>
-  <button type="submit" class="btn btn-primary">Dodaj aktualizację</button>
-</form>
 <script>
   window.onload = () => {
+    // Geolocation
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(pos => {
         document.getElementById('lat').value = pos.coords.latitude;
         document.getElementById('lng').value = pos.coords.longitude;
+      });
+    }
+    // Auto-submit form upon image selection
+    const imgInput = document.getElementById('image');
+    const addForm = document.getElementById('add-entry-form');
+    function showLoading() {
+      const overlay = document.getElementById('loading-overlay');
+      if (overlay) overlay.style.display = 'flex';
+    }
+    if (imgInput && addForm) {
+      imgInput.addEventListener('change', () => addForm.submit());
+      // On submit, show loading overlay and disable input
+      addForm.addEventListener('submit', () => {
+        imgInput.disabled = true;
+        showLoading();
       });
     }
   };

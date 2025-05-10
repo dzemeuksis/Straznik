@@ -1,21 +1,43 @@
 {% extends 'base.html' %}
 {% block content %}
 <h1>Nowe zgłoszenie</h1>
-<form method="post" enctype="multipart/form-data">
+<!-- Loading overlay -->
+<div id="loading-overlay" style="position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(255,255,255,0.8);z-index:1050;display:none;align-items:center;justify-content:center;">
+  <div class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">Wysyłanie...</span>
+  </div>
+</div>
+<form id="new-report-form" method="post" enctype="multipart/form-data">
   <div class="mb-3">
     <label for="image" class="form-label">Zdjęcie</label>
     <input class="form-control" type="file" id="image" name="image" required>
   </div>
   <input type="hidden" name="lat" id="lat">
   <input type="hidden" name="lng" id="lng">
-  <button type="submit" class="btn btn-primary">Zgłoś</button>
+  <!-- Przycisk został usunięty; formularz wysyła się automatycznie po wyborze zdjęcia -->
 </form>
 <script>
   window.onload = () => {
+    // Geolocation
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(pos => {
         document.getElementById('lat').value = pos.coords.latitude;
         document.getElementById('lng').value = pos.coords.longitude;
+      });
+    }
+    // Auto-submit form upon image selection
+    const imgInput = document.getElementById('image');
+    const newForm = document.getElementById('new-report-form');
+    function showLoading() {
+      const overlay = document.getElementById('loading-overlay');
+      if (overlay) overlay.style.display = 'flex';
+    }
+    if (imgInput && newForm) {
+      imgInput.addEventListener('change', () => newForm.submit());
+      // On submit, show loading overlay and disable input
+      newForm.addEventListener('submit', () => {
+        imgInput.disabled = true;
+        showLoading();
       });
     }
   };
