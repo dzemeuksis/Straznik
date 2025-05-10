@@ -258,7 +258,8 @@ def report():
         }
         incidents.append(incident)
         save_json('incidents.json', incidents)
-        return redirect(url_for('main.report_detail', report_id=report_id))
+        # After creating a new report, show AI advice in a modal before displaying details
+        return redirect(url_for('main.report_detail', report_id=report_id, tip=ai_advice))
     return render_template('report_form.html')
 
 @main.route('/report/<report_id>', methods=['GET', 'POST'])
@@ -270,6 +271,7 @@ def report_detail(report_id):
         return "Report not found", 404
     if request.method == 'POST':
         action = request.form.get('action')
+        tip_msg = None
         if action == 'update_description':
             entry_id = request.form.get('entry_id')
             user_desc = request.form.get('user_description', '').strip()
@@ -277,6 +279,8 @@ def report_detail(report_id):
                 if entry.get('entry_id') == entry_id:
                     entry['user_description'] = user_desc
                     break
+            # No modal for just saving user description
+            tip_msg = None
         elif action == 'add_entry':
             # Add a new entry: capture device & EXIF metadata and run vision+advice
             file = request.files.get('image')
@@ -356,10 +360,17 @@ def report_detail(report_id):
                 'ai_advice': ai_advice_new
             }
             report.setdefault('entries', []).append(new_entry)
+            # Show AI advice for the new entry in a modal
+            tip_msg = ai_advice_new
         # Persist changes
         save_json('reports.json', reports)
+        # Redirect to detail view with confirmation tip
+        if tip_msg:
+            return redirect(url_for('main.report_detail', report_id=report_id, tip=tip_msg))
         return redirect(url_for('main.report_detail', report_id=report_id))
-    return render_template('report_detail.html', report=report)
+    # Pass any tip message from query parameters to template
+    tip = request.args.get('tip')
+    return render_template('report_detail.html', report=report, tip=tip)
 
 @main.route('/reports')
 def reports_list():
