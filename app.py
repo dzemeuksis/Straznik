@@ -109,8 +109,14 @@ def get_image_metadata(filepath):
         return {}
 
 # Routes
-@main.route('/')
+@main.route('/', methods=['GET', 'POST'])
 def index():
+    # Landing page: display the report form (new incident)
+    return report()
+
+@main.route('/map')
+def map_view():
+    # Map view for incidents
     return render_template('index.html')
 
 @main.route('/profile', methods=['GET', 'POST'])
@@ -131,11 +137,14 @@ def profile():
             }
             users.append(user)
         save_json('users.json', users)
-        resp = make_response(redirect(url_for('main.index')))
+        # After saving profile, remain on the profile page and show report button
+        resp = make_response(redirect(url_for('main.profile', saved=1)))
         resp.set_cookie('user_id', user_id)
         return resp
+    # Determine if profile was just saved (show report button)
+    saved = request.args.get('saved') is not None
     profile_text = user['profile_text'] if user else ''
-    return render_template('profile.html', profile_text=profile_text)
+    return render_template('profile.html', profile_text=profile_text, saved=saved)
 
 @main.route('/report', methods=['GET', 'POST'])
 def report():
