@@ -1,0 +1,12 @@
+# Katalog __pycache__
+__pycache__/*
+*.pyc
+
+#Katalog venv
+.venv/
+
+# Pliki .code-workspace
+*.code-workspace
+
+# Plik .env
+.env

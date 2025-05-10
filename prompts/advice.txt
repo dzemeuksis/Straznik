@@ -1,0 +1,4 @@
+You are a safety advisor. Given:
+• the AI image description: {ai_description}
+• user’s profile text: {profile_text}
+Suggest one concrete action the user could take in this situation.

@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Incident Map</h1>
+<div id="map" style="height: 600px;"></div>
+<script>
+  const map = L.map('map').setView([50.0647, 19.9450], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  fetch('{{ url_for("main.api_incidents") }}')
+    .then(res => res.json())
+    .then(data => {
+      data.forEach(inc => {
+        const rpt = inc.reports[0];
+        L.marker([rpt.location.lat, rpt.location.lng])
+          .addTo(map)
+          .bindPopup(`
+            <strong>${rpt.ai_description}</strong><br>
+            ${rpt.ai_advice}
+          `);
+      });
+    });
+</script>
+{% endblock %}

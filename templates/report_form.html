@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>New Report</h1>
+<form method="post" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label for="image" class="form-label">Image</label>
+    <input class="form-control" type="file" id="image" name="image" required>
+  </div>
+  <input type="hidden" name="lat" id="lat">
+  <input type="hidden" name="lng" id="lng">
+  <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+<script>
+  window.onload = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        document.getElementById('lat').value = pos.coords.latitude;
+        document.getElementById('lng').value = pos.coords.longitude;
+      });
+    }
+  };
+</script>
+{% endblock %}
