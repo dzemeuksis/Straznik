@@ -11,6 +11,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
 app.config['DATA_FOLDER'] = os.path.join(BASE_DIR, 'data')
 app.config['PROMPTS_FOLDER'] = os.path.join(BASE_DIR, 'prompts')
+app.config['AI_MODEL'] = os.environ.get('AI_MODEL', 'gpt-4.1-mini')
 
 # Ensure directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -91,21 +92,29 @@ def report():
         # AI description
         image_url = url_for('main.uploaded_file', filename=filename, _external=True)
         prompt_desc = load_prompt('image_description.txt').format(image_url=image_url)
-        resp = openai.ChatCompletion.create(
-            model='gpt-4.1-mini',
-            messages=[{'role': 'user', 'content': prompt_desc}]
-        )
-        ai_description = resp.choices[0].message.content.strip()
+        # AI description using configured model
+        try:
+            resp = openai.ChatCompletion.create(
+                model=app.config['AI_MODEL'],
+                messages=[{'role': 'user', 'content': prompt_desc}]
+            )
+            ai_description = resp.choices[0].message.content.strip()
+        except Exception:
+            ai_description = 'AI description is unavailable.'
         # AI advice
         prompt_adv = load_prompt('advice.txt').format(
             ai_description=ai_description,
             profile_text=user.get('profile_text', '')
         )
-        resp2 = openai.ChatCompletion.create(
-            model='gpt-4.1-mini',
-            messages=[{'role': 'user', 'content': prompt_adv}]
-        )
-        ai_advice = resp2.choices[0].message.content.strip()
+        # AI advice using configured model
+        try:
+            resp2 = openai.ChatCompletion.create(
+                model=app.config['AI_MODEL'],
+                messages=[{'role': 'user', 'content': prompt_adv}]
+            )
+            ai_advice = resp2.choices[0].message.content.strip()
+        except Exception:
+            ai_advice = 'AI advice is unavailable.'
         # Save report
         reports = load_json('reports.json')
         created_at = datetime.utcnow().isoformat() + 'Z'
