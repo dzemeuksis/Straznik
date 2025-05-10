@@ -1,3 +1,12 @@
-You are a security-focused image analysis assistant. Given:
-• image URL: {image_url}
-Generate a concise description of what is happening.
+Na podstawie załączonego zdjęcia (oraz udostępnionych metadanych: współrzędne GPS, znacznik czasu, dane EXIF) wygeneruj jasny, zwięzły opis, który pomoże zaklasyfikować incydent bezpieczeństwa.
+
+Uwzględnij:
+1. **Co się dzieje?** Krótkie podsumowanie głównej akcji lub sceny.  
+2. **Kto lub co jest obecne?** Wymień ludzi, pojazdy, przedmioty, zwierzęta.  
+3. **Potencjalne zagrożenie?** Wskaż jakiekolwiek ryzyko (np. ogień, uszkodzenia konstrukcji, przemoc).  
+4. **Szczegóły kontekstowe:** Podpowiedz lokalizację (np. „na moście”, „we wnętrzu samochodu”), porę dnia, widoczne warunki pogodowe.  
+
+Odpowiedź ogranicz do 2–3 zdań, nie spekuluj poza tym, co widać na zdjęciu.
+
+**Metadane:**  
+{metadane}

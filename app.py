@@ -1,9 +1,13 @@
 import os
 import uuid
 import json
+import base64
+import mimetypes
 from datetime import datetime
 from flask import Flask, Blueprint, render_template, request, redirect, url_for, send_from_directory, jsonify, make_response
 import openai
+from openai import OpenAI
+from PIL import Image, ExifTags
 
 # Configuration
 app = Flask(__name__)
@@ -11,7 +15,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
 app.config['DATA_FOLDER'] = os.path.join(BASE_DIR, 'data')
 app.config['PROMPTS_FOLDER'] = os.path.join(BASE_DIR, 'prompts')
-app.config['AI_MODEL'] = os.environ.get('AI_MODEL', 'gpt-4.1-mini')
+app.config['AI_MODEL'] = os.environ.get('AI_MODEL', 'gpt-4.1-mini-2025-04-14')
 
 # Ensure directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -41,6 +45,20 @@ def load_prompt(filename):
     path = os.path.join(app.config['PROMPTS_FOLDER'], filename)
     with open(path, 'r') as f:
         return f.read()
+def get_image_metadata(filepath):
+    """
+    Read EXIF metadata from image file and return as dict.
+    """
+    try:
+        img = Image.open(filepath)
+        exif_data = img._getexif() or {}
+        metadata = {}
+        for tag_id, value in exif_data.items():
+            tag = ExifTags.TAGS.get(tag_id, tag_id)
+            metadata[tag] = value
+        return metadata
+    except Exception:
+        return {}
 
 # Routes
 @main.route('/')
@@ -91,42 +109,70 @@ def report():
         file.save(filepath)
         # AI description
         image_url = url_for('main.uploaded_file', filename=filename, _external=True)
-        prompt_desc = load_prompt('image_description.txt').format(image_url=image_url)
-        # AI description using configured model
+        # Extract EXIF metadata for prompt
+        metadata_dict = get_image_metadata(filepath)
+        if metadata_dict:
+            metadane = "\n".join(f"{k}: {v}" for k, v in metadata_dict.items())
+        else:
+            metadane = "Brak metadanych."
+        print("Metadane:", metadane)
+        prompt_desc = load_prompt('image_description.txt').format(metadane=metadane)
+        # AI description using vision modality via direct image encoding
+        # Encode image file as Base64 data URI
+        mime_type, _ = mimetypes.guess_type(filepath)
+        if not mime_type:
+            mime_type = 'application/octet-stream'
+        with open(filepath, 'rb') as img_file:
+            b64 = base64.b64encode(img_file.read()).decode('utf-8')
+        data_uri = f"data:{mime_type};base64,{b64}"
+        # Prepare vision client
+        client = OpenAI()
         try:
-            resp = openai.ChatCompletion.create(
+            vision_response = client.responses.create(
                 model=app.config['AI_MODEL'],
-                messages=[{'role': 'user', 'content': prompt_desc}]
+                input=[{
+                    'role': 'user',
+                    'content': [
+                        {'type': 'input_text', 'text': prompt_desc},
+                        {'type': 'input_image', 'image_url': data_uri}
+                    ]
+                }]
             )
-            ai_description = resp.choices[0].message.content.strip()
+            ai_description = vision_response.output_text.strip()
         except Exception:
             ai_description = 'AI description is unavailable.'
-        # AI advice
+        # AI advice using direct client.responses.create
         prompt_adv = load_prompt('advice.txt').format(
             ai_description=ai_description,
             profile_text=user.get('profile_text', '')
         )
-        # AI advice using configured model
+        client = OpenAI()
         try:
-            resp2 = openai.ChatCompletion.create(
+            advice_response = client.responses.create(
                 model=app.config['AI_MODEL'],
-                messages=[{'role': 'user', 'content': prompt_adv}]
+                input=prompt_adv
             )
-            ai_advice = resp2.choices[0].message.content.strip()
+            ai_advice = advice_response.output_text.strip()
         except Exception:
             ai_advice = 'AI advice is unavailable.'
-        # Save report
+        # Save report with initial entry
         reports = load_json('reports.json')
         created_at = datetime.utcnow().isoformat() + 'Z'
-        report = {
-            'report_id': report_id,
-            'user_id': user_id,
+        entry_id = str(uuid.uuid4())
+        entry = {
+            'entry_id': entry_id,
+            'timestamp': created_at,
             'image_filename': filename,
-            'created_at': created_at,
-            'location': {'lat': float(lat), 'lng': float(lng)},
             'ai_description': ai_description,
             'user_description': '',
             'ai_advice': ai_advice
+        }
+        report = {
+            'report_id': report_id,
+            'user_id': user_id,
+            'created_at': created_at,
+            'location': {'lat': float(lat), 'lng': float(lng)},
+            'entries': [entry]
         }
         reports.append(report)
         save_json('reports.json', reports)
@@ -144,16 +190,96 @@ def report():
 
 @main.route('/report/<report_id>', methods=['GET', 'POST'])
 def report_detail(report_id):
+    # View and update a report: allows annotating entries or adding new images
     reports = load_json('reports.json')
     report = next((r for r in reports if r['report_id'] == report_id), None)
     if not report:
         return "Report not found", 404
     if request.method == 'POST':
-        user_desc = request.form.get('user_description', '').strip()
-        report['user_description'] = user_desc
+        action = request.form.get('action')
+        if action == 'update_description':
+            entry_id = request.form.get('entry_id')
+            user_desc = request.form.get('user_description', '').strip()
+            for entry in report.get('entries', []):
+                if entry.get('entry_id') == entry_id:
+                    entry['user_description'] = user_desc
+                    break
+        elif action == 'add_entry':
+            file = request.files.get('image')
+            user_desc = request.form.get('user_description', '').strip()
+            if not file or file.filename == '':
+                return "No file", 400
+            ext = os.path.splitext(file.filename)[1]
+            new_entry_id = str(uuid.uuid4())
+            new_filename = new_entry_id + ext
+            new_filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
+            file.save(new_filepath)
+            # Extract EXIF metadata
+            metadata_dict = get_image_metadata(new_filepath)
+            if metadata_dict:
+                metadane = "\n".join(f"{k}: {v}" for k, v in metadata_dict.items())
+            else:
+                metadane = "Brak metadanych."
+            prompt_desc = load_prompt('image_description.txt').format(metadane=metadane)
+            # Encode image
+            mime_type, _ = mimetypes.guess_type(new_filepath)
+            if not mime_type:
+                mime_type = 'application/octet-stream'
+            with open(new_filepath, 'rb') as img_file:
+                b64 = base64.b64encode(img_file.read()).decode('utf-8')
+            data_uri = f"data:{mime_type};base64,{b64}"
+            client = OpenAI()
+            try:
+                vision_resp = client.responses.create(
+                    model=app.config['AI_MODEL'],
+                    input=[{
+                        'role': 'user',
+                        'content': [
+                            {'type': 'input_text', 'text': prompt_desc},
+                            {'type': 'input_image', 'image_url': data_uri}
+                        ]
+                    }]
+                )
+                ai_description_new = vision_resp.output_text.strip()
+            except Exception:
+                ai_description_new = 'AI description is unavailable.'
+            # Generate advice
+            advice_prompt = load_prompt('advice.txt').format(
+                ai_description=ai_description_new,
+                profile_text=next((u['profile_text'] for u in load_json('users.json') if u['user_id'] == report.get('user_id')), '')
+            )
+            try:
+                advice_resp = client.responses.create(
+                    model=app.config['AI_MODEL'],
+                    input=advice_prompt
+                )
+                ai_advice_new = advice_resp.output_text.strip()
+            except Exception:
+                ai_advice_new = 'AI advice is unavailable.'
+            timestamp = datetime.utcnow().isoformat() + 'Z'
+            new_entry = {
+                'entry_id': new_entry_id,
+                'timestamp': timestamp,
+                'image_filename': new_filename,
+                'ai_description': ai_description_new,
+                'user_description': user_desc,
+                'ai_advice': ai_advice_new
+            }
+            report.setdefault('entries', []).append(new_entry)
+        # Persist changes
         save_json('reports.json', reports)
         return redirect(url_for('main.report_detail', report_id=report_id))
     return render_template('report_detail.html', report=report)
+
+@main.route('/reports')
+def reports_list():
+    # List all reports for the current user
+    user_id = request.cookies.get('user_id')
+    if not user_id:
+        return redirect(url_for('main.profile'))
+    all_reports = load_json('reports.json')
+    user_reports = [r for r in all_reports if r.get('user_id') == user_id]
+    return render_template('reports.html', reports=user_reports)
 
 @main.route('/api/incidents')
 def api_incidents():
@@ -165,13 +291,14 @@ def api_incidents():
         for rid in inc.get('reports', []):
             r = next((rep for rep in reports if rep['report_id'] == rid), None)
             if r:
-                # Include image URL for thumbnails
+                # include first entry for marker popup
+                first = r.get('entries', [])[0]
                 rep_list.append({
                     'report_id': r['report_id'],
                     'location': r['location'],
-                    'ai_description': r['ai_description'],
-                    'ai_advice': r['ai_advice'],
-                    'image_url': url_for('main.uploaded_file', filename=r['image_filename'])
+                    'ai_description': first.get('ai_description'),
+                    'ai_advice': first.get('ai_advice'),
+                    'image_url': url_for('main.uploaded_file', filename=first.get('image_filename'))
                 })
         out.append({
             'incident_id': inc.get('incident_id'),
