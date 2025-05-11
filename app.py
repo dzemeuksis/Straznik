@@ -116,8 +116,18 @@ def index():
 
 @main.route('/map')
 def map_view():
-    # Map view for incidents
-    return render_template('index.html')
+    # Map view for incidents: center on user's last event if exists
+    user_id = request.cookies.get('user_id')
+    last_location = None
+    if user_id:
+        reports = load_json('reports.json')
+        # Filter reports created by this user
+        user_reports = [r for r in reports if r.get('user_id') == user_id]
+        if user_reports:
+            # Find most recent report by creation time
+            last_report = max(user_reports, key=lambda r: r.get('created_at', ''))
+            last_location = last_report.get('location')
+    return render_template('index.html', last_location=last_location)
 
 @main.route('/profile', methods=['GET', 'POST'])
 def profile():

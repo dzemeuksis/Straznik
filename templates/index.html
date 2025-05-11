@@ -6,6 +6,8 @@
   // Default map center (fallback)
   const defaultLocation = [50.0647, 19.9450];
   const defaultZoom = 13;
+  // Last user event location from server (or null)
+  const lastLocation = {{ last_location|tojson }};
   let map;
   // Ikony znaczników: zadeklarowane globalnie, przypisane po załadowaniu Leaflet
   var redIcon, greenIcon;
@@ -62,7 +64,9 @@
       popupAnchor: [1, -34],
       shadowSize: [41, 41]
     });
-    if (navigator.geolocation) {
+    if (lastLocation) {
+      initializeMap(lastLocation.lat, lastLocation.lng);
+    } else if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         pos => initializeMap(pos.coords.latitude, pos.coords.longitude),
         () => initializeMap(...defaultLocation)
